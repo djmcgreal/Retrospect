@@ -51,9 +51,9 @@ local function learnerLines(id, lines)
   for _, l in ipairs(R.Items.Learners(id)) do
     if l.state == "can" then
       lines[#lines + 1] = string.format("%s can learn this (%d)", Kit.Name(l.c), l.rank or 0)
-    elseif l.state == "known" then
+    elseif not (Core.Tooltip and not Core.Tooltip.Detail()) and l.state == "known" then
       lines[#lines + 1] = string.format("%s %sknows this|r", Kit.Name(l.c), UI.Code(C.faint))
-    elseif l.state == "low" then
+    elseif not (Core.Tooltip and not Core.Tooltip.Detail()) and l.state == "low" then
       lines[#lines + 1] = string.format("%s %sneeds skill %d, has %d|r", Kit.Name(l.c), UI.Code(C.faint), l.need or 0, l.rank or 0)
     end
   end
@@ -96,17 +96,44 @@ function Tips:AddItem(tt, id)
     learnerLines(id, needs)
     questLines(id, needs)
   end
-  if #lines == 0 and #needs == 0 then return 0 end
-  local r, g, b = accent()
-  if total > 0 then
-    local holders = #Index:Holdings(id)
-    tt:AddLine(string.format("Retrospect: %d on %d %s", total, holders, holders == 1 and "character" or "characters"), r, g, b)
-  else
-    tt:AddLine("Retrospect: none held", r, g, b)
+  -- Nothing to say when the only copies are this character's, on them right now: the player is looking at them.
+  local holdings = Index:Holdings(id)
+  local onlyMine = #holdings == 1 and holdings[1].holder.key == Store:MyKey()
+  if onlyMine then
+    for place in pairs(holdings[1].e.places) do
+      if place ~= "bags" and place ~= "gear" then onlyMine = false end
+    end
   end
-  for _, line in ipairs(lines) do tt:AddLine(line, 1, 1, 1) end
-  for _, line in ipairs(needs) do tt:AddLine(line, 1, 1, 1) end
-  return 1 + #lines + #needs
+  if onlyMine then lines, total = {}, 0 end
+  if #lines == 0 and #needs == 0 then return 0 end
+  -- one line, who holds what while Shift is held; who needs it (an alt's quest, a recipe) always shows
+  local Tip = Core.Tooltip
+  local detail = not Tip or Tip.Detail()
+  local r, g, b = accent()
+  local head
+  if total > 0 then
+    head = string.format("Retrospect: %d on %d %s", total, #holdings, #holdings == 1 and "character" or "characters")
+    -- a few holders fit on the line itself
+    if #holdings <= 3 and not detail then
+      local who = {}
+      for _, h in ipairs(holdings) do
+        who[#who + 1] = (h.holder.c and Kit.Name(h.holder.c) or h.holder.label) .. " " .. h.e.total
+      end
+      head = "Retrospect: " .. table.concat(who, ", ")
+    end
+  elseif onlyMine then
+    head = "Retrospect"
+  else
+    head = "Retrospect: none held"
+  end
+  local more = #lines > 0
+  if Tip then Tip.Head(tt, head, { r, g, b }, more) else tt:AddLine(head, r, g, b) end
+  local added = 1
+  if detail then
+    for _, line in ipairs(lines) do tt:AddLine(line, 1, 1, 1) added = added + 1 end
+  end
+  for _, line in ipairs(needs) do tt:AddLine(line, 1, 1, 1) added = added + 1 end
+  return added
 end
 
 ---Adds who has done a quest and who is on it to a quest tooltip.
