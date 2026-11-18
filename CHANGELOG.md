@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2, 2026-11-18
+
+- Shorter item tooltips: one line, and who holds what while Shift is held. Nothing when the only copies are in your own bags.
+
 ## 0.10.1 (2026-11-09)
 
 - Asks for Norgannon Core 1.22 or newer, the first Core with everything it uses. An older Core now gets a clear "update Norgannon Core" message instead of errors.
