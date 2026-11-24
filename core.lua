@@ -7,7 +7,7 @@ local Core = NorgannonCore
 
 if not (Core and Core.NewAddon) then
   Retrospect = { disabled = true }
-  print("Retrospect needs Norgannon Core 1.22 or newer; it is turned off.")
+  print("Retrospect needs Norgannon Core 1.34 or newer; it is turned off.")
   return
 end
 
@@ -33,18 +33,21 @@ R.DEFAULTS = {
   tooltips = true,       -- who holds an item, in item tooltips
   tooltipNeeds = true,   -- who can learn a recipe or needs an item for a quest, in tooltips
   loginLine = true,      -- one quiet chat line at login when something is urgent
-  chars = {},            -- ["Realm-Name"] = a character (store.lua)
-  guilds = {},           -- ["Realm-Guild"] = a guild bank
+  chars = {},            -- [GUID] = a character (store.lua)
+  guilds = {},           -- ["server-Guild"] = a guild bank
   names = {},            -- item names NorgannonDB doesn't have
   factions = {},         -- faction id = { name, group }
   probe = {},            -- what each reader last got (probe.lua)
 }
 
+-- Saved-data changes. 2 (0.11.0): the game stopped naming the realm, so characters were kept twice (store.lua).
+R.MIGRATE = { [2] = function(sv) R.Store.Upgrade(sv) end }
+
 -- The suite's plumbing (Core:NewAddon): version checks, RetrospectDB with its defaults, the slash command, the minimap
 -- row and the add-on menu. Left-click and /retro open the window; right-click opens settings; /retro <item> searches.
 Core:NewAddon("retrospect", {
-  folder = ADDON, api = { 1, 22 }, data = { 1, 4 },
-  db = "RetrospectDB", defaults = R.DEFAULTS,
+  folder = ADDON, api = { 1, 34 }, data = { 1, 4 },
+  db = "RetrospectDB", defaults = R.DEFAULTS, version = 2, migrate = R.MIGRATE,
   slash = { "/retro", "/retrospect" },
   commands = { probe = { function() R.Probe:Report() end, "what Retrospect can read on this client" } },
   onUnknown = function(msg) R.Window:Search(msg) end,   -- /retro arcanite: who has it

@@ -23,7 +23,8 @@ local function forgetOptions()
   local options = {}
   for _, entry in ipairs(Store:List()) do
     if entry.key ~= Store:MyKey() then
-      options[#options + 1] = { entry.key, tostring(entry.c.name) .. " (" .. tostring(entry.c.realm) .. ")" }
+      options[#options + 1] = { entry.key, string.format("%s (level %s %s)", tostring(entry.c.full or entry.c.name),
+        tostring(entry.c.level or "?"), tostring(entry.c.className or entry.c.class or "character")) }
     end
   end
   if #options == 0 then options[1] = { "", "No other characters" } end

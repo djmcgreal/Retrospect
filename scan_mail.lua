@@ -78,15 +78,28 @@ Core:On("MAIL_INBOX_UPDATE", "retrospect.mail", queueMail)
 
 local pending
 
----The character key of a recipient on this realm, if it is one of yours.
+---The key of a recipient, if it's one of your characters on this server: by first and last name, or by first name when
+---only one of yours has it.
 local function ownCharacter(recipient)
   if type(recipient) ~= "string" or Core.IsSecret(recipient) then return nil end
-  local name, realm = strsplit("-", recipient, 2)
-  local me = Store:Me()
-  local key = (realm or me.realm) .. "-" .. name
+  local Names = Core.Names
+  local full, first = Names.Full(recipient), Names.First(recipient)
+  if not (full and first) then return nil end
+  full, first = string.lower(full), string.lower(first)
+  local here = Store:ServerOf(Store:MyKey())
+  local found
   for _, entry in ipairs(Store:List()) do
-    if string.lower(entry.key) == string.lower(key) then return entry.key end
+    local c = entry.c
+    if entry.server == here and c.name and string.lower(c.name) == first then
+      local known = Names.HasSurname(c.full) and Names.HasSurname(full) and string.lower(c.full)
+      if known == full then return entry.key end
+      if not known then
+        if found then return nil end
+        found = entry.key
+      end
+    end
   end
+  return found
 end
 
 local function onSend(recipient, subject)

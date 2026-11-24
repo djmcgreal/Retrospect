@@ -1,5 +1,5 @@
 -- Retrospect's window (design/suite/retrospect.html): the suite frame with a search in its header,
--- the rail on the left (All characters, then each character by realm), and tabs over a pane. The
+-- the rail on the left (All characters, then each character by server), and tabs over a pane. The
 -- rail sets the scope of everything on the right: tabs, search and what they show.
 --
 -- Dragging the bottom-right corner really resizes the window: lists and tables reflow and the text
@@ -107,11 +107,14 @@ end
 
 local function railItems()
   local items = { { all = true } }
-  local realm
-  for _, entry in ipairs(Store:List()) do
-    if entry.c.realm ~= realm then
-      realm = entry.c.realm
-      items[#items + 1] = { group = tostring(realm) }
+  local list = Store:List()
+  local several = #list > 0 and list[1].server ~= list[#list].server
+  local server
+  for _, entry in ipairs(list) do
+    if entry.server ~= server then
+      server = entry.server
+      -- the game no longer names servers: the name it had, if it's needed to tell two apart
+      items[#items + 1] = { group = several and (Store:ServerName(server) or (#items == 1 and "Your server" or "Another server")) or "Characters" }
     end
     items[#items + 1] = { key = entry.key, c = entry.c }
   end

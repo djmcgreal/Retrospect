@@ -30,7 +30,7 @@ local function fillHead(frame, key)
   local c = Store:Get(key)
   frame.name:SetText(Kit.Name(c))
   local who = string.format("Level %s %s %s%s", tostring(c.level or "?"), tostring(c.race or ""), c.spec and (c.spec .. " ") or "", classWord(c))
-  frame.facts:SetText(who .. " · " .. tostring(c.realm) .. (c.guild and (" · <" .. c.guild .. ">") or ""))
+  frame.facts:SetText(who .. (c.guild and (" · <" .. c.guild .. ">") or ""))
   return c
 end
 R.CharacterHead = { Build = buildHead, Fill = fillHead, HEIGHT = HEAD }

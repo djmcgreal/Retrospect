@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.1, 2026-11-23
+
+- The readout on the gold chart is a rounded box in Retrospect's colour, as in the suite's new windows.
+
+## 0.11.0, 2026-11-23
+
+- **Your characters are no longer listed twice.** On 20 November 2026 the game stopped naming the realm, and Retrospect,
+  which kept a character under its realm and name, started a second copy of everyone who logged in after that. The copies
+  are put together the first time this version loads: each part comes from the copy that read it last, and the gold
+  history is both. Characters are kept by their game id from now on, so this can't happen again.
+- The character list is headed "Characters" instead of a realm. If yours are on more than one server it's grouped by
+  server, and it shows the old realm name where there was one.
+- Mail to one of your own characters is recognised by first and last name (or by first name, when only one has it).
+- Needs Norgannon Core 1.34.
+
 ## 0.10.3, 2026-11-23
 
 - The level badges beside your characters are easier to read: white outlined numbers on a deeper class colour.

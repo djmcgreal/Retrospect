@@ -1,8 +1,8 @@
--- The characters, in RetrospectDB.chars["Realm-Name"]. A character's sections each carry their own
+-- The characters, in RetrospectDB.chars[GUID]. A character's sections each carry their own
 -- `seen` (when Retrospect last read them): a section that is missing was never read, which is not
 -- the same as empty. Sections:
 --
---   name, realm, class, race, faction, level, money, seen (last time on this character), zone, subzone,
+--   name, full (first and last name), realm (if the game ever named it), class, race, faction, level, money, seen (last time on this character), zone, subzone,
 --   guild, spec, ilvl, bind, played, xp, xpMax, rest, resting, goldDays = { [day] = copper }
 --   bags, bank = { seen, slots, free, containers = { { id, size, free, name, items = packed } } }
 --   gear = { seen, slots = { [slot] = packed entry } }
@@ -35,12 +35,115 @@ function Store:Loaded()
   chars = R.db.chars
 end
 
----"Realm-Name" of the character logged in now.
+-------------------------------------------------------------------------------------------
+-- Keys. Until 0.11.0 a character was kept under "Realm-Name". The game stopped naming the realm on 2026-11-20, so the
+-- same character came back as "-Name", twice in every list. Now it's the GUID (Core.Character). Upgrade puts the two
+-- copies together when the saved data loads; a character moves to its GUID when it next logs in.
+-------------------------------------------------------------------------------------------
+
+local Character = Core.Character
+local SECTIONS = { "bags", "bank", "gear", "mail", "auctions", "quests", "reputation", "lockouts" }
+-- where being missing means something: no guild any more, no spec chosen
+local MAY_BE_GONE = { guild = true, spec = true }
+
+-- one professions section from two, the newer on top
+local function mergeProfessions(top, under)
+  if not (top and under) then return top or under end
+  if (under.seen or 0) > (top.seen or 0) then top, under = under, top end
+  for skill, p in pairs(top.skills or {}) do
+    local q = under.skills and under.skills[skill]
+    -- recipes are only read with the profession open, so the older copy may be the only one that has them
+    if q and q.recipes and (not p.recipes or (q.seen or 0) > (p.seen or 0)) then
+      p.recipes, p.count, p.source, p.seen = q.recipes, q.count, q.source, q.seen
+    end
+  end
+  return top
+end
+
+---One character from two copies of it: each section from the copy that read it last.
+function Store.Merge(a, b)
+  if not (a and b) then return a or b end
+  local top, under = b, a
+  if (a.seen or 0) > (b.seen or 0) then top, under = a, b end
+  for _, s in ipairs(SECTIONS) do
+    local x, y = top[s], under[s]
+    if x and y then
+      if (y.seen or 0) > (x.seen or 0) then x, y = y, x end
+      if s == "quests" and not x.done then x.done, x.doneCount = y.done, y.doneCount end
+      if s == "reputation" then
+        x.list = x.list or {}
+        for id, r in pairs(y.list or {}) do if x.list[id] == nil then x.list[id] = r end end
+      end
+      top[s] = x
+    end
+  end
+  top.professions = mergeProfessions(top.professions, under.professions)
+  for day, copper in pairs(under.goldDays or {}) do
+    top.goldDays = top.goldDays or {}
+    if top.goldDays[day] == nil then top.goldDays[day] = copper end
+  end
+  for spell, ready in pairs(under.cooldowns or {}) do
+    top.cooldowns = top.cooldowns or {}
+    top.cooldowns[spell] = math.max(top.cooldowns[spell] or 0, ready)
+  end
+  if top.incoming and under.incoming then
+    for _, mail in ipairs(under.incoming) do top.incoming[#top.incoming + 1] = mail end
+  end
+  if top.played and under.played then top.played = math.max(top.played, under.played) end
+  if (top.realm or "") == "" then top.realm = under.realm end
+  for k, v in pairs(under) do
+    if top[k] == nil and not MAY_BE_GONE[k] then top[k] = v end
+  end
+  return top
+end
+
+-- false for two copies that can't be one character: another class or race
+local function sameCharacter(a, b)
+  return (a.class == nil or b.class == nil or a.class == b.class) and (a.race == nil or b.race == nil or a.race == b.race)
+end
+
+---Saved data from before 0.11.0: a character, or a guild bank, kept both under a realm name and under none.
+function Store.Upgrade(sv)
+  if type(sv.chars) == "table" then
+    for _, p in ipairs(Character.Pairs(sv.chars, { same = sameCharacter })) do
+      sv.chars[p.to] = Store.Merge(sv.chars[p.to], sv.chars[p.from])
+      sv.chars[p.from] = nil
+      if sv.who == p.from then sv.who = p.to end
+    end
+  end
+  if type(sv.guilds) == "table" then
+    for _, p in ipairs(Character.Pairs(sv.guilds)) do
+      if (sv.guilds[p.from].seen or 0) >= (sv.guilds[p.to].seen or 0) then sv.guilds[p.to] = sv.guilds[p.from] end
+      sv.guilds[p.from] = nil
+    end
+  end
+end
+
+-- what the character logged in has under an old key moves to its GUID
+local function adopt(key, name)
+  local _, class = R.Global("UnitClass", "player")
+  local level = R.Global("UnitLevel", "player")
+  local from = Character.Mine(chars, name, { mine = function(c)
+    return (class == nil or c.class == nil or c.class == class) and not (level and c.level and c.level > level)
+  end })
+  if not from then return end
+  chars[key] = Store.Merge(chars[from], chars[key])
+  chars[from] = nil
+  sorted, unpacked = nil, {}
+  if R.db.who == from then R.db.who = key end
+  if R.Index then R.Index:Invalidate() end
+end
+
+---The key of the character logged in now: its GUID.
 function Store:MyKey()
   if not myKey then
-    local realm = R.Global("GetRealmName") or "Realm"
     local name = R.Global("UnitName", "player") or "Unknown"
-    myKey = realm .. "-" .. name
+    local key = Character.Key()
+    -- before the game says who this is: an old-style key, which the GUID takes over once it's known
+    if not key then return "-" .. name end
+    if not chars then return key end
+    myKey = key
+    adopt(key, name)
   end
   return myKey
 end
@@ -50,7 +153,7 @@ function Store:Me()
   local key = self:MyKey()
   local c = chars[key]
   if not c then
-    c = { name = R.Global("UnitName", "player") or "Unknown", realm = R.Global("GetRealmName") or "Realm", goldDays = {} }
+    c = { name = R.Global("UnitName", "player") or "Unknown", goldDays = {} }
     chars[key] = c
     sorted = nil
   end
@@ -59,16 +162,40 @@ end
 
 function Store:Get(key) return chars[key] end
 
----Every character as { key, c }: this realm first, then by realm; you, then higher levels first in each.
+---The server a character is on, for grouping: from its GUID. A character that hasn't logged in since 0.11.0 has only
+---its old key, so it's with the others of its realm, or with you if that can't be told.
+function Store:ServerOf(key, c)
+  local server = Character.Server(key)
+  if server then return server end
+  if c and (c.realm or "") ~= "" then
+    local named = false
+    for k, other in pairs(chars) do
+      local s = Character.Server(k)
+      if s and other.realm == c.realm then return s end
+      if s and (other.realm or "") ~= "" then named = true end
+    end
+    if named then return c.realm end   -- a realm nobody here is on
+  end
+  return Character.Server() or ""
+end
+
+---What to call a server: the realm name it had, if the game ever said.
+function Store:ServerName(server)
+  for k, c in pairs(chars) do
+    if (c.realm or "") ~= "" and self:ServerOf(k, c) == server then return c.realm end
+  end
+end
+
+---Every character as { key, c, server }: your server first; you, then higher levels first in each.
 function Store:List()
   if sorted then return sorted end
+  local here = self:ServerOf(self:MyKey())   -- first: this can move your record to its GUID
   sorted = {}
-  for key, c in pairs(chars) do sorted[#sorted + 1] = { key = key, c = c } end
-  local here = chars[self:MyKey()] and chars[self:MyKey()].realm
+  for key, c in pairs(chars) do sorted[#sorted + 1] = { key = key, c = c, server = self:ServerOf(key, c) } end
   table.sort(sorted, function(a, b)
-    local ar, br = a.c.realm == here, b.c.realm == here
+    local ar, br = a.server == here, b.server == here
     if ar ~= br then return ar end
-    if a.c.realm ~= b.c.realm then return tostring(a.c.realm) < tostring(b.c.realm) end
+    if a.server ~= b.server then return a.server < b.server end
     if a.key == myKey or b.key == myKey then return a.key == myKey end   -- who you're on, first
     if (a.c.level or 0) ~= (b.c.level or 0) then return (a.c.level or 0) > (b.c.level or 0) end
     return tostring(a.c.name) < tostring(b.c.name)
@@ -286,7 +413,20 @@ Core:On("ITEM_DATA_LOAD_RESULT", "retrospect.items", function()
   if R.Window then R.Window:RefreshSoon() end
 end)
 
--- a guild's key, for the shared holdings
+local function splitGuild(key)
+  local realm, name = Character.Split(key)
+  if realm and not realm:find("^%d+$") then return realm, name end
+end
+
+-- the key of this character's guild, for the shared holdings
 function Store:GuildKey(c)
-  return c.guild and ((c.realm or "") .. "-" .. c.guild) or nil
+  if not c.guild then return nil end
+  local key = (Character.Server() or "") .. "-" .. c.guild
+  local old = Character.Mine(R.db.guilds, c.guild, { split = splitGuild })
+  if old and old ~= key then
+    R.db.guilds[key] = R.db.guilds[key] or R.db.guilds[old]
+    R.db.guilds[old] = nil
+    if R.Index then R.Index:Invalidate() end
+  end
+  return key
 end

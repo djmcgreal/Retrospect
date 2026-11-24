@@ -115,7 +115,7 @@ function Scan:GuildBank()
   local key = Store:GuildKey(c)
   if not key then return end
   local tabs = R.Global("GetNumGuildBankTabs") or 0
-  local record = { seen = R.Now(), name = c.guild, realm = c.realm, tabs = {} }
+  local record = { seen = R.Now(), name = c.guild, tabs = {} }
   local n = 0
   for tab = 1, tabs do
     local name, _, viewable = R.Global("GetGuildBankTabInfo", tab)

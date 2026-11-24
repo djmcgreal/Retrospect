@@ -80,7 +80,9 @@ end
 function Scan:Basics()
   local c = Store:Me()
   c.name = R.Global("UnitName", "player") or c.name
-  c.realm = R.Global("GetRealmName") or c.realm
+  c.full = Core.Names.Me() or c.full
+  local realm = R.Global("GetRealmName")
+  if realm and realm ~= "" then c.realm = realm end   -- "" on every client since 2026-11-20
   local className, class = R.Global("UnitClass", "player")
   c.className = className or c.className
   local race = R.Global("UnitRace", "player")
