@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.3, 2026-11-24
+
+- The flight points a character knows, gathered at every flight master: node ids and names. Only the points the flight master offers count (the map also lists undiscovered ones), and each visit adds to what earlier ones saw, since one flight master cannot see a separate network.
+
 ## 0.10.2, 2026-11-18
 
 - Shorter item tooltips: one line, and who holds what while Shift is held. Nothing when the only copies are in your own bags.

@@ -10,6 +10,7 @@
 --   incoming = { { from, subject, money, arrives, items = packed } }   (mail your own alts sent)
 --   auctions = { seen, list = { { item = packed, buyout, bid, expires, sold } }, bids = { same } }
 --   quests = { seen, log = { { id, title, level, complete, done, need, objectives } }, done = packed ids, doneCount }
+--   taxi = { seen, rule = 2, nodes = packed ids, names = { [nodeID] = name } }   (flight points the character knows, gathered at flight masters)
 --   professions = { seen, skills = { [skillLine] = { rank, max, name, seen, source, count, recipes = packed ids } } }
 --   reputation = { seen, list = { [factionId] = { reaction, value, low, high } } }
 --   lockouts = { seen, list = { { name, reset, killed, total, raid } } }
