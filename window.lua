@@ -138,6 +138,17 @@ local function fillRail()
   win.railGold:SetText(Kit.Money(totalGold()))
 end
 
+-- A badge: white figures with the game's black outline on a deepened colour, edged in the colour
+-- itself. The suite's fonts have old-style figures (uneven heights, tails) and a black shadow, which
+-- smudges dark text; the game's number font is made for figures this small, and reads on any class.
+local BADGE_DEEPEN = .45
+
+local function paintBadge(badge, color)
+  local fill = UI.Mix(color, { 0, 0, 0 }, BADGE_DEEPEN)
+  badge.edge:SetColorTexture(color[1], color[2], color[3], 1)
+  badge.fill:SetColorTexture(fill[1], fill[2], fill[3], 1)
+end
+
 local function createRailRow(row, content)
   row.badge = CreateFrame("Frame", nil, content)
   row.badge:SetSize(26, 26)
@@ -147,7 +158,10 @@ local function createRailRow(row, content)
   row.badge.fill = UI.Tex(row.badge, "BACKGROUND", 1)
   row.badge.fill:SetPoint("TOPLEFT", 1, -1)
   row.badge.fill:SetPoint("BOTTOMRIGHT", -1, 1)
-  row.badge.text = UI.Text(row.badge, "title", 13, { .07, .07, .07 })
+  row.badge.text = UI.Text(row.badge, "bold", 13, { 1, 1, 1 })
+  row.badge.text:SetFontObject(rawget(_G, "NumberFontNormal") or UI.Font("bold", 13, "OUTLINE"))
+  row.badge.text:SetTextColor(1, 1, 1)
+  row.badge.text:SetJustifyH("CENTER")
   row.badge.text:SetPoint("CENTER")
   row.name = UI.Text(content, "body", 14)
   row.name:SetPoint("TOPLEFT", row.badge, "TOPRIGHT", 8, 1)
@@ -165,10 +179,8 @@ end
 
 local function updateRailRow(row, item)
   if item.all then
-    local a = UI.Accent("retrospect")
-    row.badge.fill:SetColorTexture(a[1], a[2], a[3], 1)
+    paintBadge(row.badge, UI.Accent("retrospect"))
     row.badge.text:SetText("All")
-    row.badge.text:SetFontObject(UI.Font("bold", 10))
     row.name:SetText("All characters")
     local n = #R.Today:Events()
     row.meta:SetText(n == 1 and "1 thing on today's list" or n .. " things on today's list")
@@ -177,9 +189,7 @@ local function updateRailRow(row, item)
     return
   end
   local c = item.c
-  local cc = Kit.ClassColor(c.class)
-  row.badge.fill:SetColorTexture(cc[1], cc[2], cc[3], 1)
-  row.badge.text:SetFontObject(UI.Font("title", 13))
+  paintBadge(row.badge, Kit.ClassColor(c.class))
   row.badge.text:SetText(c.level or "?")
   local mine = item.key == Store:MyKey()
   row.name:SetText(Kit.Name(c) .. (mine and " |cff6fdc6f•|r" or ""))

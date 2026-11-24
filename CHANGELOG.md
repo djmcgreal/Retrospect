@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.3, 2026-11-23
+
+- The level badges beside your characters are easier to read: white outlined numbers on a deeper class colour.
+
 ## 0.10.2, 2026-11-18
 
 - Shorter item tooltips: one line, and who holds what while Shift is held. Nothing when the only copies are in your own bags.
